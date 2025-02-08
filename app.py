@@ -85,15 +85,9 @@ def predict_client(client_id):
     """Prédit si le client est accepté ou refusé"""
     logger.info(f"Predicting decision for client ID {client_id}")
     try:
-        # Récupérer les données du client depuis l'API FastAPI
-        response = requests.get(f"{API_URL}/client/{client_id}")
-        if response.status_code != 200:
-            logger.error(f"Failed to fetch data for client ID {client_id}")
-            return jsonify({"error": "Client non trouvé"}), 404
-
-        client_data = response.json()
+        client_data = requests.get(f"{API_URL}/client/{client_id}").json()
         score = client_data.get("score", 0)
-        decision = "Accepté" if score <= 0.51 else "Refusé"  # Inverser la logique si nécessaire
+        decision = "Accepté" if score > 0.51 else "Refusé"
         logger.info(f"Prediction for client ID {client_id}: Decision={decision}, Score={score}")
         return jsonify({"score": score, "decision": decision})
     except Exception as e:
@@ -105,12 +99,7 @@ def get_global_importance():
     """Récupère les importances globales et génère un graphique"""
     logger.info("Fetching global feature importance")
     try:
-        response = requests.get(f"{API_URL}/analyze/1")  # Utilisez un client arbitraire
-        if response.status_code != 200:
-            logger.error("Failed to fetch global feature importance")
-            return jsonify({"error": "Échec de la récupération des données."}), 500
-
-        global_importance = response.json()
+        global_importance = requests.get(f"{API_URL}/analyze/1").json()  # Utilisez un client arbitraire
         names = global_importance["global_importance_names"]
         values = global_importance["global_importance_values"]
 
@@ -140,12 +129,7 @@ def get_local_importance(client_id):
     """Récupère les importances locales et génère un graphique"""
     logger.info(f"Fetching local feature importance for client ID {client_id}")
     try:
-        response = requests.get(f"{API_URL}/analyze/{client_id}")
-        if response.status_code != 200:
-            logger.error(f"Failed to fetch local feature importance for client ID {client_id}")
-            return jsonify({"error": "Échec de la récupération des données."}), 500
-
-        local_importance = response.json()
+        local_importance = requests.get(f"{API_URL}/analyze/{client_id}").json()
         names = local_importance["local_importance_names"]
         values = local_importance["local_importance_values"]
 
