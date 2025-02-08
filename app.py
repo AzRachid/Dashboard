@@ -12,6 +12,7 @@ import logging
 
 # Initialisation de l'application Flask
 app = Flask(__name__)
+app_initialized = False  # Drapeau pour vérifier si l'application est déjà initialisée
 
 # Configuration des logs
 logging.basicConfig(level=logging.INFO)
@@ -20,23 +21,22 @@ logger = logging.getLogger(__name__)
 # Récupérer l'URL de l'API FastAPI depuis une variable d'environnement
 API_URL = os.getenv("API_URL", "https://appliscoring-1f1f7c4e1003.herokuapp.com")
 
-# Initialisation de l'application (remplace @app.before_first_request)
-def initialize_app():
+@app.before_request
+def init_app():
     """Initialisation de l'application"""
-    logger.info("Application started successfully.")
-    try:
-        # Vérifiez ici si vos ressources externes sont accessibles
-        response = requests.get(f"{API_URL}/clients")
-        if response.status_code != 200:
-            logger.error("Impossible de se connecter à l'API FastAPI.")
-            raise Exception("L'API FastAPI est inaccessible.")
-    except Exception as e:
-        logger.error(f"Erreur lors de l'initialisation : {e}")
-        raise
-
-# Appel de la fonction d'initialisation dans un contexte d'application
-with app.app_context():
-    initialize_app()
+    global app_initialized
+    if not app_initialized:
+        logger.info("Application started successfully.")
+        try:
+            # Vérifiez ici si vos ressources externes sont accessibles
+            response = requests.get(f"{API_URL}/clients")
+            if response.status_code != 200:
+                logger.error("Impossible de se connecter à l'API FastAPI.")
+                raise Exception("L'API FastAPI est inaccessible.")
+        except Exception as e:
+            logger.error(f"Erreur lors de l'initialisation : {e}")
+            raise
+        app_initialized = True  # Marquer l'application comme initialisée
 
 @app.route("/", methods=["GET"])
 def home():
@@ -85,9 +85,15 @@ def predict_client(client_id):
     """Prédit si le client est accepté ou refusé"""
     logger.info(f"Predicting decision for client ID {client_id}")
     try:
-        client_data = requests.get(f"{API_URL}/client/{client_id}").json()
+        # Récupérer les données du client depuis l'API FastAPI
+        response = requests.get(f"{API_URL}/client/{client_id}")
+        if response.status_code != 200:
+            logger.error(f"Failed to fetch data for client ID {client_id}")
+            return jsonify({"error": "Client non trouvé"}), 404
+
+        client_data = response.json()
         score = client_data.get("score", 0)
-        decision = "Accepté" if score < 0.51 else "Refusé"  # Correction : proche de 0 = accepté
+        decision = "Accepté" if score <= 0.51 else "Refusé"  # Inverser la logique si nécessaire
         logger.info(f"Prediction for client ID {client_id}: Decision={decision}, Score={score}")
         return jsonify({"score": score, "decision": decision})
     except Exception as e:
@@ -99,7 +105,12 @@ def get_global_importance():
     """Récupère les importances globales et génère un graphique"""
     logger.info("Fetching global feature importance")
     try:
-        global_importance = requests.get(f"{API_URL}/analyze/1").json()  # Utilisez un client arbitraire
+        response = requests.get(f"{API_URL}/analyze/1")  # Utilisez un client arbitraire
+        if response.status_code != 200:
+            logger.error("Failed to fetch global feature importance")
+            return jsonify({"error": "Échec de la récupération des données."}), 500
+
+        global_importance = response.json()
         names = global_importance["global_importance_names"]
         values = global_importance["global_importance_values"]
 
@@ -129,7 +140,12 @@ def get_local_importance(client_id):
     """Récupère les importances locales et génère un graphique"""
     logger.info(f"Fetching local feature importance for client ID {client_id}")
     try:
-        local_importance = requests.get(f"{API_URL}/analyze/{client_id}").json()
+        response = requests.get(f"{API_URL}/analyze/{client_id}")
+        if response.status_code != 200:
+            logger.error(f"Failed to fetch local feature importance for client ID {client_id}")
+            return jsonify({"error": "Échec de la récupération des données."}), 500
+
+        local_importance = response.json()
         names = local_importance["local_importance_names"]
         values = local_importance["local_importance_values"]
 
@@ -156,10 +172,10 @@ def get_local_importance(client_id):
 
 @app.route("/distribution/<string:variable>", methods=["GET"])
 def get_distribution(variable):
-    """Affiche la distribution d'une variable selon la cible"""
+    """Affiche la distribution d'une variable selon la cible (simulée)"""
     logger.info(f"Fetching distribution for variable {variable}")
     try:
-        # Simuler les données de distribution (à remplacer par vos propres données)
+        # Simuler les données de distribution (remplacez cela par vos propres données si nécessaire)
         data = {
             "accepted": [1, 2, 3, 4, 5],
             "rejected": [5, 4, 3, 2, 1]
@@ -168,9 +184,8 @@ def get_distribution(variable):
         rejected_values = data.get("rejected", [])
 
         plt.figure(figsize=(10, 6))
-        sns.kdeplot(accepted_values, label="Acceptés", shade=True, color="green")
-        sns.kdeplot(rejected_values, label="Rejetés", shade=True, color="red")
-        plt.axvline(0.51, color='yellow', linestyle='--', label="Seuil (0.51)")  # Ajouter le seuil
+        sns.kdeplot(accepted_values, label="Acceptés", shade=True)
+        sns.kdeplot(rejected_values, label="Rejetés", shade=True)
         plt.title(f"Distribution de {variable} selon la cible")
         plt.xlabel(variable)
         plt.ylabel("Densité")
