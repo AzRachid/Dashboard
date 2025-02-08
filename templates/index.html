@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scoring Crédit</title>
+    <title>Dashboard Scoring Crédit</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             margin: 20px;
         }
         .container {
-            max-width: 600px;
+            max-width: 800px;
             margin: auto;
         }
         button {
@@ -31,25 +31,43 @@
             border: 1px solid #ddd;
             margin-top: 20px;
         }
+        img {
+            max-width: 100%;
+            height: auto;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Scoring Crédit</h1>
-        <p>Sélectionnez une fonction et un client pour obtenir les informations correspondantes.</p>
+        <h1>Dashboard Scoring Crédit</h1>
+
+        <!-- Charger un fichier CSV -->
+        <h2>Charger un fichier d'entraînement</h2>
+        <form id="upload-form" enctype="multipart/form-data">
+            <input type="file" name="file" accept=".csv">
+            <button type="submit">Charger</button>
+        </form>
+        <p id="upload-message"></p>
 
         <!-- Boutons pour choisir les fonctions -->
+        <h2>Sélectionnez un client</h2>
         <button onclick="fetchClients()">Charger la liste des clients</button>
-        <button onclick="fetchClientData()">Obtenir les informations du client</button>
-        <button onclick="analyzeClient()">Analyser le client</button>
-
-        <!-- Liste déroulante pour choisir un ID client -->
-        <label for="client-id">Sélectionnez un ID client :</label>
         <select id="client-id" disabled></select>
 
-        <!-- Zone de résultats -->
-        <h2>Résultats :</h2>
-        <pre id="results"></pre>
+        <!-- Prédiction -->
+        <button onclick="predictClient()" id="predict-btn" disabled>Prédire</button>
+        <pre id="prediction-results"></pre>
+
+        <!-- Graphiques -->
+        <h2>Graphiques</h2>
+        <button onclick="fetchGlobalImportance()">Importance Globale</button>
+        <button onclick="fetchLocalImportance()" id="local-btn" disabled>Importance Locale</button>
+        <button onclick="fetchDistribution()">Distribution de Variable</button>
+        <img id="chart" src="" alt="Chart">
+
+        <!-- Sélection de variable pour distribution -->
+        <label for="variable-select">Sélectionnez une variable :</label>
+        <select id="variable-select" disabled></select>
     </div>
 
     <script>
@@ -69,48 +87,100 @@
                         clientIdSelect.appendChild(option);
                     });
                     clientIdSelect.disabled = false; // Activer la liste déroulante
+                    document.getElementById("predict-btn").disabled = false;
+                    document.getElementById("local-btn").disabled = false;
                 })
                 .catch(error => console.error("Erreur lors du chargement des clients :", error));
         }
 
-        // Obtenir les informations d'un client spécifique
-        function fetchClientData() {
+        // Prédiction pour un client
+        function predictClient() {
             const clientId = document.getElementById("client-id").value;
             if (!clientId) {
                 alert("Veuillez sélectionner un ID client.");
                 return;
             }
-            fetch(`/client/${clientId}`)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error("Client non trouvé.");
-                    }
-                    return response.json();
-                })
+            fetch(`/predict/${clientId}`)
+                .then(response => response.json())
                 .then(data => {
-                    document.getElementById("results").textContent = JSON.stringify(data, null, 2);
+                    document.getElementById("prediction-results").textContent = JSON.stringify(data, null, 2);
                 })
-                .catch(error => alert(error.message));
+                .catch(error => alert("Erreur lors de la prédiction."));
         }
 
-        // Analyser un client spécifique
-        function analyzeClient() {
+        // Récupérer l'importance globale
+        function fetchGlobalImportance() {
+            fetch("/global-importance")
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById("chart").src = "data:image/png;base64," + data.image;
+                })
+                .catch(error => alert("Erreur lors du chargement de l'importance globale."));
+        }
+
+        // Récupérer l'importance locale
+        function fetchLocalImportance() {
             const clientId = document.getElementById("client-id").value;
             if (!clientId) {
                 alert("Veuillez sélectionner un ID client.");
                 return;
             }
-            fetch(`/analyze/${clientId}`)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error("Client non trouvé ou analyse impossible.");
-                    }
-                    return response.json();
-                })
+            fetch(`/local-importance/${clientId}`)
+                .then(response => response.json())
                 .then(data => {
-                    document.getElementById("results").textContent = JSON.stringify(data, null, 2);
+                    document.getElementById("chart").src = "data:image/png;base64," + data.image;
                 })
-                .catch(error => alert(error.message));
+                .catch(error => alert("Erreur lors du chargement de l'importance locale."));
+        }
+
+        // Récupérer la distribution d'une variable
+        function fetchDistribution() {
+            const variable = document.getElementById("variable-select").value;
+            if (!variable) {
+                alert("Veuillez sélectionner une variable.");
+                return;
+            }
+            fetch(`/distribution/${variable}`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById("chart").src = "data:image/png;base64," + data.image;
+                })
+                .catch(error => alert("Erreur lors du chargement de la distribution."));
+        }
+
+        // Gestion du chargement de fichier
+        document.getElementById("upload-form").addEventListener("submit", function(event) {
+            event.preventDefault();
+            const formData = new FormData(this);
+            fetch("/", {
+                method: "POST",
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById("upload-message").textContent = data.message;
+                    document.getElementById("variable-select").disabled = false;
+                    fetchVariables();
+                })
+                .catch(error => alert("Erreur lors du chargement du fichier."));
+        });
+
+        // Récupérer les variables du fichier
+        function fetchVariables() {
+            fetch("/clients") // Simule une requête pour récupérer les variables
+                .then(response => response.json())
+                .then(data => {
+                    const variableSelect = document.getElementById("variable-select");
+                    variableSelect.innerHTML = ""; // Effacer les options existantes
+                    // Remplacez cette liste par les variables réelles du fichier
+                    ["AMT_INCOME_TOTAL", "DAYS_BIRTH", "DAYS_EMPLOYED"].forEach(variable => {
+                        const option = document.createElement("option");
+                        option.value = variable;
+                        option.textContent = variable;
+                        variableSelect.appendChild(option);
+                    });
+                })
+                .catch(error => console.error("Erreur lors du chargement des variables :", error));
         }
     </script>
 </body>
