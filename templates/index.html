@@ -41,14 +41,6 @@
     <div class="container">
         <h1>Dashboard Scoring Crédit</h1>
 
-        <!-- Charger un fichier CSV -->
-        <h2>Charger un fichier d'entraînement</h2>
-        <form id="upload-form" enctype="multipart/form-data">
-            <input type="file" name="file" accept=".csv">
-            <button type="submit">Charger</button>
-        </form>
-        <p id="upload-message"></p>
-
         <!-- Boutons pour choisir les fonctions -->
         <h2>Sélectionnez un client</h2>
         <button onclick="fetchClients()">Charger la liste des clients</button>
@@ -67,7 +59,11 @@
 
         <!-- Sélection de variable pour distribution -->
         <label for="variable-select">Sélectionnez une variable :</label>
-        <select id="variable-select" disabled></select>
+        <select id="variable-select" disabled>
+            <option value="AMT_INCOME_TOTAL">AMT_INCOME_TOTAL</option>
+            <option value="DAYS_BIRTH">DAYS_BIRTH</option>
+            <option value="DAYS_EMPLOYED">DAYS_EMPLOYED</option>
+        </select>
     </div>
 
     <script>
@@ -146,41 +142,6 @@
                     document.getElementById("chart").src = "data:image/png;base64," + data.image;
                 })
                 .catch(error => alert("Erreur lors du chargement de la distribution."));
-        }
-
-        // Gestion du chargement de fichier
-        document.getElementById("upload-form").addEventListener("submit", function(event) {
-            event.preventDefault();
-            const formData = new FormData(this);
-            fetch("/", {
-                method: "POST",
-                body: formData
-            })
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById("upload-message").textContent = data.message;
-                    document.getElementById("variable-select").disabled = false;
-                    fetchVariables();
-                })
-                .catch(error => alert("Erreur lors du chargement du fichier."));
-        });
-
-        // Récupérer les variables du fichier
-        function fetchVariables() {
-            fetch("/clients") // Simule une requête pour récupérer les variables
-                .then(response => response.json())
-                .then(data => {
-                    const variableSelect = document.getElementById("variable-select");
-                    variableSelect.innerHTML = ""; // Effacer les options existantes
-                    // Remplacez cette liste par les variables réelles du fichier
-                    ["AMT_INCOME_TOTAL", "DAYS_BIRTH", "DAYS_EMPLOYED"].forEach(variable => {
-                        const option = document.createElement("option");
-                        option.value = variable;
-                        option.textContent = variable;
-                        variableSelect.appendChild(option);
-                    });
-                })
-                .catch(error => console.error("Erreur lors du chargement des variables :", error));
         }
     </script>
 </body>
