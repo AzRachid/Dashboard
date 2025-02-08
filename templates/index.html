@@ -70,15 +70,12 @@
 
         <!-- Sélection de variable pour distribution -->
         <label for="variable-select">Sélectionnez une variable :</label>
-        <select id="variable-select" disabled>
-            <option value="AMT_INCOME_TOTAL">AMT_INCOME_TOTAL</option>
-            <option value="DAYS_BIRTH">DAYS_BIRTH</option>
-            <option value="DAYS_EMPLOYED">DAYS_EMPLOYED</option>
-        </select>
+        <select id="variable-select" disabled></select>
     </div>
 
     <script>
         let clientList = [];
+        let featureNames = []; // Liste des features
 
         // Charger la liste des clients
         function fetchClients() {
@@ -96,8 +93,32 @@
                     clientIdSelect.disabled = false; // Activer la liste déroulante
                     document.getElementById("predict-btn").disabled = false;
                     document.getElementById("local-btn").disabled = false;
+
+                    // Récupérer les noms des features
+                    fetch("/global-importance")
+                        .then(response => response.json())
+                        .then(data => {
+                            const globalImportance = atob(data.image); // Décoder l'image base64
+                            const analyzerResponse = JSON.parse(globalImportance); // Analyser la réponse
+                            featureNames = analyzerResponse.global_importance_names || [];
+                            populateVariableDropdown();
+                        })
+                        .catch(error => console.error("Erreur lors du chargement des features :", error));
                 })
                 .catch(error => console.error("Erreur lors du chargement des clients :", error));
+        }
+
+        // Remplir la liste déroulante des variables
+        function populateVariableDropdown() {
+            const variableSelect = document.getElementById("variable-select");
+            variableSelect.innerHTML = ""; // Effacer les options existantes
+            featureNames.forEach(feature => {
+                const option = document.createElement("option");
+                option.value = feature;
+                option.textContent = feature;
+                variableSelect.appendChild(option);
+            });
+            variableSelect.disabled = false; // Activer la liste déroulante
         }
 
         // Prédiction pour un client
@@ -134,13 +155,16 @@
                 gaugeContainer.innerHTML = '<canvas id="gauge" width="300" height="300"></canvas>';
             }
 
+            const threshold = 0.51;
+
+            // Configurer la jauge
             const gaugeConfig = {
                 type: 'doughnut',
                 data: {
-                    labels: ['Score', 'Seuil'],
+                    labels: ['Score', 'Reste'],
                     datasets: [{
-                        data: [score * 100, (1 - score) * 100],
-                        backgroundColor: ['#4caf50', '#f44336'],
+                        data: [(1 - score) * 100, score * 100], // Inversé pour proche de 0 = accepté
+                        backgroundColor: ['#4caf50', '#f44336'], // Vert pour accepté, rouge pour refusé
                         borderColor: ['#4caf50', '#f44336'],
                         borderWidth: 1
                     }]
@@ -157,14 +181,14 @@
                 }
             };
 
-            const threshold = 0.51;
-            const gaugeThresholdConfig = {
+            // Configurer le seuil
+            const thresholdConfig = {
                 type: 'doughnut',
                 data: {
                     labels: ['Seuil', 'Reste'],
                     datasets: [{
                         data: [threshold * 100, (1 - threshold) * 100],
-                        backgroundColor: ['#ffeb3b', 'transparent'],
+                        backgroundColor: ['#ffeb3b', 'transparent'], // Jaune pour le seuil
                         borderColor: ['#ffeb3b', 'transparent'],
                         borderWidth: 1
                     }]
@@ -181,8 +205,9 @@
                 }
             };
 
-            const gaugeChart = new Chart(ctx, gaugeConfig);
-            const thresholdChart = new Chart(ctx, gaugeThresholdConfig);
+            // Créer les jauges
+            new Chart(ctx, gaugeConfig);
+            new Chart(ctx, thresholdConfig);
 
             // Afficher le seuil au centre
             const centerText = document.createElement('p');
