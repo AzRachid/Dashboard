@@ -1,1 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scoring Crédit</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: auto;
+        }
+        button {
+            margin: 5px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        select {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            font-size: 16px;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 10px;
+            border: 1px solid #ddd;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Scoring Crédit</h1>
+        <p>Sélectionnez une fonction et un client pour obtenir les informations correspondantes.</p>
 
+        <!-- Boutons pour choisir les fonctions -->
+        <button onclick="fetchClients()">Charger la liste des clients</button>
+        <button onclick="fetchClientData()">Obtenir les informations du client</button>
+        <button onclick="analyzeClient()">Analyser le client</button>
+
+        <!-- Liste déroulante pour choisir un ID client -->
+        <label for="client-id">Sélectionnez un ID client :</label>
+        <select id="client-id" disabled></select>
+
+        <!-- Zone de résultats -->
+        <h2>Résultats :</h2>
+        <pre id="results"></pre>
+    </div>
+
+    <script>
+        let clientList = [];
+
+        // Charger la liste des clients
+        function fetchClients() {
+            fetch("/clients")
+                .then(response => response.json())
+                .then(data => {
+                    const clientIdSelect = document.getElementById("client-id");
+                    clientIdSelect.innerHTML = ""; // Effacer les options existantes
+                    data.forEach(clientId => {
+                        const option = document.createElement("option");
+                        option.value = clientId;
+                        option.textContent = clientId;
+                        clientIdSelect.appendChild(option);
+                    });
+                    clientIdSelect.disabled = false; // Activer la liste déroulante
+                })
+                .catch(error => console.error("Erreur lors du chargement des clients :", error));
+        }
+
+        // Obtenir les informations d'un client spécifique
+        function fetchClientData() {
+            const clientId = document.getElementById("client-id").value;
+            if (!clientId) {
+                alert("Veuillez sélectionner un ID client.");
+                return;
+            }
+            fetch(`/client/${clientId}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error("Client non trouvé.");
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    document.getElementById("results").textContent = JSON.stringify(data, null, 2);
+                })
+                .catch(error => alert(error.message));
+        }
+
+        // Analyser un client spécifique
+        function analyzeClient() {
+            const clientId = document.getElementById("client-id").value;
+            if (!clientId) {
+                alert("Veuillez sélectionner un ID client.");
+                return;
+            }
+            fetch(`/analyze/${clientId}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error("Client non trouvé ou analyse impossible.");
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    document.getElementById("results").textContent = JSON.stringify(data, null, 2);
+                })
+                .catch(error => alert(error.message));
+        }
+    </script>
+</body>
+</html>
