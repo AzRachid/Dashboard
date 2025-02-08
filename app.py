@@ -20,8 +20,8 @@ logger = logging.getLogger(__name__)
 # Récupérer l'URL de l'API FastAPI depuis une variable d'environnement
 API_URL = os.getenv("API_URL", "https://appliscoring-1f1f7c4e1003.herokuapp.com")
 
-@app.before_first_request
-def init_app():
+# Initialisation de l'application (remplace @app.before_first_request)
+def initialize_app():
     """Initialisation de l'application"""
     logger.info("Application started successfully.")
     try:
@@ -33,6 +33,10 @@ def init_app():
     except Exception as e:
         logger.error(f"Erreur lors de l'initialisation : {e}")
         raise
+
+# Appel de la fonction d'initialisation dans un contexte d'application
+with app.app_context():
+    initialize_app()
 
 @app.route("/", methods=["GET"])
 def home():
@@ -83,7 +87,7 @@ def predict_client(client_id):
     try:
         client_data = requests.get(f"{API_URL}/client/{client_id}").json()
         score = client_data.get("score", 0)
-        decision = "Accepté" if score > 0.51 else "Refusé"
+        decision = "Accepté" if score < 0.51 else "Refusé"  # Correction : proche de 0 = accepté
         logger.info(f"Prediction for client ID {client_id}: Decision={decision}, Score={score}")
         return jsonify({"score": score, "decision": decision})
     except Exception as e:
@@ -152,10 +156,10 @@ def get_local_importance(client_id):
 
 @app.route("/distribution/<string:variable>", methods=["GET"])
 def get_distribution(variable):
-    """Affiche la distribution d'une variable selon la cible (simulée)"""
+    """Affiche la distribution d'une variable selon la cible"""
     logger.info(f"Fetching distribution for variable {variable}")
     try:
-        # Simuler les données de distribution (remplacez cela par vos propres données si nécessaire)
+        # Simuler les données de distribution (à remplacer par vos propres données)
         data = {
             "accepted": [1, 2, 3, 4, 5],
             "rejected": [5, 4, 3, 2, 1]
@@ -164,8 +168,9 @@ def get_distribution(variable):
         rejected_values = data.get("rejected", [])
 
         plt.figure(figsize=(10, 6))
-        sns.kdeplot(accepted_values, label="Acceptés", shade=True)
-        sns.kdeplot(rejected_values, label="Rejetés", shade=True)
+        sns.kdeplot(accepted_values, label="Acceptés", shade=True, color="green")
+        sns.kdeplot(rejected_values, label="Rejetés", shade=True, color="red")
+        plt.axvline(0.51, color='yellow', linestyle='--', label="Seuil (0.51)")  # Ajouter le seuil
         plt.title(f"Distribution de {variable} selon la cible")
         plt.xlabel(variable)
         plt.ylabel("Densité")
