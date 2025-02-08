@@ -1,10 +1,11 @@
 from flask import Flask, render_template, request, jsonify
 import requests
+import os
 
 app = Flask(__name__)
 
-# URL de base de votre API FastAPI
-API_URL = "https://votre-domaine.herokuapp.com"
+# Récupérer l'URL de l'API FastAPI depuis une variable d'environnement
+API_URL = os.getenv("API_URL", "https://appliscoring-1f1f7c4e1003.herokuapp.com")  # URL de votre API
 
 @app.route("/", methods=["GET"])
 def home():
