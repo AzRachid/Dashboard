@@ -154,40 +154,5 @@ def get_local_importance(client_id):
         logger.error(f"Error generating local feature importance chart for client ID {client_id}: {e}")
         return jsonify({"error": "Échec de la génération du graphique."}), 500
 
-@app.route("/distribution/<string:variable>", methods=["GET"])
-def get_distribution(variable):
-    """Affiche la distribution d'une variable selon la cible (simulée)"""
-    logger.info(f"Fetching distribution for variable {variable}")
-    try:
-        # Simuler les données de distribution (remplacez cela par vos propres données si nécessaire)
-        data = {
-            "accepted": [1, 2, 3, 4, 5],
-            "rejected": [5, 4, 3, 2, 1]
-        }
-        accepted_values = data.get("accepted", [])
-        rejected_values = data.get("rejected", [])
-
-        plt.figure(figsize=(10, 6))
-        sns.kdeplot(accepted_values, label="Acceptés", shade=True)
-        sns.kdeplot(rejected_values, label="Rejetés", shade=True)
-        plt.title(f"Distribution de {variable} selon la cible")
-        plt.xlabel(variable)
-        plt.ylabel("Densité")
-        plt.legend()
-        plt.tight_layout()
-
-        # Convertir le graphique en base64
-        buffer = BytesIO()
-        plt.savefig(buffer, format="png")
-        buffer.seek(0)
-        image_base64 = base64.b64encode(buffer.read()).decode("utf-8")
-        plt.close()
-
-        logger.info(f"Distribution chart generated successfully for variable {variable}")
-        return jsonify({"image": image_base64})
-    except Exception as e:
-        logger.error(f"Error generating distribution chart for variable {variable}: {e}")
-        return jsonify({"error": "Échec de la génération du graphique."}), 500
-
 if __name__ == "__main__":
     app.run(debug=True)
