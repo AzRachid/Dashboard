@@ -12,6 +12,7 @@ import logging
 
 # Initialisation de l'application Flask
 app = Flask(__name__)
+app_initialized = False  # Drapeau pour vérifier si l'application est déjà initialisée
 
 # Configuration des logs
 logging.basicConfig(level=logging.INFO)
@@ -20,19 +21,22 @@ logger = logging.getLogger(__name__)
 # Récupérer l'URL de l'API FastAPI depuis une variable d'environnement
 API_URL = os.getenv("API_URL", "https://appliscoring-1f1f7c4e1003.herokuapp.com")
 
-@app.before_first_request
+@app.before_request
 def init_app():
     """Initialisation de l'application"""
-    logger.info("Application started successfully.")
-    try:
-        # Vérifiez ici si vos ressources externes sont accessibles
-        response = requests.get(f"{API_URL}/clients")
-        if response.status_code != 200:
-            logger.error("Impossible de se connecter à l'API FastAPI.")
-            raise Exception("L'API FastAPI est inaccessible.")
-    except Exception as e:
-        logger.error(f"Erreur lors de l'initialisation : {e}")
-        raise
+    global app_initialized
+    if not app_initialized:
+        logger.info("Application started successfully.")
+        try:
+            # Vérifiez ici si vos ressources externes sont accessibles
+            response = requests.get(f"{API_URL}/clients")
+            if response.status_code != 200:
+                logger.error("Impossible de se connecter à l'API FastAPI.")
+                raise Exception("L'API FastAPI est inaccessible.")
+        except Exception as e:
+            logger.error(f"Erreur lors de l'initialisation : {e}")
+            raise
+        app_initialized = True  # Marquer l'application comme initialisée
 
 @app.route("/", methods=["GET"])
 def home():
