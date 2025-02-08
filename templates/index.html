@@ -1,268 +1,265 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard de Scoring Crédit</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>Dashboard Scoring Crédit</title>
     <style>
-        .chart-container {
-            margin-top: 20px;
-            margin-bottom: 20px;
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
         }
-        .form-select {
-            margin-bottom: 10px;
+        .container {
+            max-width: 800px;
+            margin: auto;
+        }
+        button {
+            margin: 5px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        select {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            font-size: 16px;
+        }
+        pre {
+            background-color: #f4f4f4;
+            padding: 10px;
+            border: 1px solid #ddd;
+            margin-top: 20px;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+        }
+        #gauge-container {
+            text-align: center;
+            margin-top: 20px;
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
         }
     </style>
+    <!-- Ajouter Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div class="container">
-        <h1 class="text-center my-4">Dashboard de Scoring Crédit</h1>
+        <h1>Dashboard Scoring Crédit</h1>
 
-        <!-- Sélection du client -->
-        <div class="row">
-            <div class="col-md-6">
-                <label for="client-select" class="form-label">Sélectionnez un client :</label>
-                <select id="client-select" class="form-select">
-                    <option value="">Chargement des clients...</option>
-                </select>
-            </div>
-        </div>
+        <!-- Boutons pour choisir les fonctions -->
+        <h2>Sélectionnez un client</h2>
+        <button onclick="fetchClients()">Charger la liste des clients</button>
+        <select id="client-id" disabled></select>
 
-        <!-- Informations du client -->
-        <div class="row mt-4">
-            <div class="col-md-6">
-                <h3>Informations du client</h3>
-                <div id="client-info">
-                    <p>Veuillez sélectionner un client.</p>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <h3>Prédiction</h3>
-                <div id="prediction-result">
-                    <p>Veuillez sélectionner un client pour voir la prédiction.</p>
-                </div>
-            </div>
-        </div>
+        <!-- Prédiction -->
+        <button onclick="predictClient()" id="predict-btn" disabled>Prédire</button>
+        <div id="prediction-results"></div>
+        <div id="gauge-container"></div>
 
-        <!-- Importance des features -->
-        <div class="row mt-4">
-            <div class="col-md-6">
-                <h3>Importance Globale des Features</h3>
-                <div class="chart-container">
-                    <canvas id="global-importance-chart"></canvas>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <h3>Importance Locale des Features</h3>
-                <div class="chart-container">
-                    <canvas id="local-importance-chart"></canvas>
-                </div>
-            </div>
-        </div>
+        <!-- Graphiques -->
+        <h2>Graphiques</h2>
+        <button onclick="fetchGlobalImportance()">Importance Globale</button>
+        <button onclick="fetchLocalImportance()" id="local-btn" disabled>Importance Locale</button>
+        <button onclick="fetchDistribution()">Distribution de Variable</button>
+        <img id="chart" src="" alt="Chart">
 
-        <!-- Distribution des variables -->
-        <div class="row mt-4">
-            <div class="col-md-6">
-                <label for="variable-select" class="form-label">Sélectionnez une variable :</label>
-                <select id="variable-select" class="form-select">
-                    <option value="">Chargement des variables...</option>
-                </select>
-            </div>
-        </div>
-        <div class="row mt-4">
-            <div class="col-md-12">
-                <h3>Distribution de la Variable</h3>
-                <div class="chart-container">
-                    <canvas id="distribution-chart"></canvas>
-                </div>
-            </div>
-        </div>
+        <!-- Sélection de variable pour distribution -->
+        <label for="variable-select">Sélectionnez une variable :</label>
+        <select id="variable-select" disabled></select>
     </div>
 
     <script>
-        const API_URL = "https://appliscoring-1f1f7c4e1003.herokuapp.com";  // Remplacez par l'URL de votre API
+        let clientList = [];
+        let featureNames = []; // Liste des features
 
         // Charger la liste des clients
-        async function loadClients() {
-            const response = await fetch(`${API_URL}/clients`);
-            const clients = await response.json();
-            const select = document.getElementById('client-select');
-            select.innerHTML = '<option value="">Sélectionnez un client</option>';
-            clients.forEach(client => {
-                const option = document.createElement('option');
-                option.value = client;
-                option.textContent = `Client ${client}`;
-                select.appendChild(option);
+        function fetchClients() {
+            fetch("/clients")
+                .then(response => response.json())
+                .then(data => {
+                    const clientIdSelect = document.getElementById("client-id");
+                    clientIdSelect.innerHTML = ""; // Effacer les options existantes
+                    data.forEach(clientId => {
+                        const option = document.createElement("option");
+                        option.value = clientId;
+                        option.textContent = clientId;
+                        clientIdSelect.appendChild(option);
+                    });
+                    clientIdSelect.disabled = false; // Activer la liste déroulante
+                    document.getElementById("predict-btn").disabled = false;
+                    document.getElementById("local-btn").disabled = false;
+
+                    // Récupérer les noms des features
+                    fetch("/global-importance")
+                        .then(response => response.json())
+                        .then(data => {
+                            const globalImportance = atob(data.image); // Décoder l'image base64
+                            const analyzerResponse = JSON.parse(globalImportance); // Analyser la réponse
+                            featureNames = analyzerResponse.global_importance_names || [];
+                            populateVariableDropdown();
+                        })
+                        .catch(error => console.error("Erreur lors du chargement des features :", error));
+                })
+                .catch(error => console.error("Erreur lors du chargement des clients :", error));
+        }
+
+        // Remplir la liste déroulante des variables
+        function populateVariableDropdown() {
+            const variableSelect = document.getElementById("variable-select");
+            variableSelect.innerHTML = ""; // Effacer les options existantes
+            featureNames.forEach(feature => {
+                const option = document.createElement("option");
+                option.value = feature;
+                option.textContent = feature;
+                variableSelect.appendChild(option);
             });
+            variableSelect.disabled = false; // Activer la liste déroulante
         }
 
-        // Charger la liste des variables
-        async function loadVariables() {
-            const response = await fetch(`${API_URL}/variables`);
-            const variables = await response.json();
-            const select = document.getElementById('variable-select');
-            select.innerHTML = '<option value="">Sélectionnez une variable</option>';
-            variables.forEach(variable => {
-                const option = document.createElement('option');
-                option.value = variable;
-                option.textContent = variable;
-                select.appendChild(option);
-            });
-        }
-
-        // Afficher les informations du client
-        async function loadClientInfo(clientId) {
-            const response = await fetch(`${API_URL}/client/${clientId}`);
-            if (!response.ok) {
-                document.getElementById('client-info').innerHTML = `<p class="text-danger">Client non trouvé.</p>`;
+        // Prédiction pour un client
+        function predictClient() {
+            const clientId = document.getElementById("client-id").value;
+            if (!clientId) {
+                alert("Veuillez sélectionner un ID client.");
                 return;
             }
-            const clientData = await response.json();
-            document.getElementById('client-info').innerHTML = `
-                <p><strong>ID Client :</strong> ${clientData.client_id}</p>
-                <p><strong>Âge :</strong> ${clientData.age.toFixed(2)} ans</p>
-                <p><strong>Revenu :</strong> ${clientData.income.toFixed(2)}</p>
-                <p><strong>Ancienneté emploi :</strong> ${clientData.employment_length.toFixed(2)} ans</p>
-                <p><strong>Montant crédit :</strong> ${clientData.credit_amount.toFixed(2)}</p>
-            `;
+            fetch(`/predict/${clientId}`)
+                .then(response => response.json())
+                .then(data => {
+                    const decision = data.decision || "Indéterminé";
+                    const score = data.score || 0;
+
+                    // Afficher la décision
+                    document.getElementById("prediction-results").innerHTML = `
+                        <strong>Décision :</strong> ${decision}<br>
+                        <strong>Score :</strong> ${score.toFixed(4)}
+                    `;
+
+                    // Créer la jauge
+                    createGauge(score);
+                })
+                .catch(error => alert("Erreur lors de la prédiction."));
         }
 
-        // Afficher la prédiction
-        async function loadPrediction(clientId) {
-            const response = await fetch(`${API_URL}/client/${clientId}`);
-            if (!response.ok) {
-                document.getElementById('prediction-result').innerHTML = `<p class="text-danger">Erreur lors de la prédiction.</p>`;
-                return;
+        // Créer une jauge avec Chart.js
+        function createGauge(score) {
+            const ctx = document.getElementById('gauge').getContext('2d');
+            const gaugeCanvas = document.getElementById('gauge');
+            if (!gaugeCanvas) {
+                const gaugeContainer = document.getElementById('gauge-container');
+                gaugeContainer.innerHTML = '<canvas id="gauge" width="300" height="300"></canvas>';
             }
-            const clientData = await response.json();
-            document.getElementById('prediction-result').innerHTML = `
-                <p><strong>Score :</strong> ${clientData.score.toFixed(2)}</p>
-                <p><strong>Décision :</strong> ${clientData.decision}</p>
-            `;
-        }
 
-        // Afficher l'importance globale des features
-        async function loadGlobalImportance() {
-            const response = await fetch(`${API_URL}/analyze/1`);  // Utilisez un client arbitraire
-            if (!response.ok) {
-                console.error("Erreur lors du chargement de l'importance globale.");
-                return;
-            }
-            const importanceData = await response.json();
-            const ctx = document.getElementById('global-importance-chart').getContext('2d');
-            new Chart(ctx, {
-                type: 'bar',
+            const threshold = 0.51;
+
+            // Configurer la jauge
+            const gaugeConfig = {
+                type: 'doughnut',
                 data: {
-                    labels: importanceData.global_importance_names,
+                    labels: ['Score', 'Reste'],
                     datasets: [{
-                        label: 'Importance Globale',
-                        data: importanceData.global_importance_values,
-                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                        borderColor: 'rgba(75, 192, 192, 1)',
+                        data: [(1 - score) * 100, score * 100], // Inversé pour proche de 0 = accepté
+                        backgroundColor: ['#4caf50', '#f44336'], // Vert pour accepté, rouge pour refusé
+                        borderColor: ['#4caf50', '#f44336'],
                         borderWidth: 1
                     }]
                 },
                 options: {
-                    indexAxis: 'y',
-                    scales: {
-                        x: { beginAtZero: true }
-                    }
-                }
-            });
-        }
-
-        // Afficher l'importance locale des features
-        async function loadLocalImportance(clientId) {
-            const response = await fetch(`${API_URL}/analyze/${clientId}`);
-            if (!response.ok) {
-                console.error("Erreur lors du chargement de l'importance locale.");
-                return;
-            }
-            const importanceData = await response.json();
-            const ctx = document.getElementById('local-importance-chart').getContext('2d');
-            new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: importanceData.local_importance_names,
-                    datasets: [{
-                        label: 'Importance Locale',
-                        data: importanceData.local_importance_values,
-                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                        borderColor: 'rgba(255, 99, 132, 1)',
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    indexAxis: 'y',
-                    scales: {
-                        x: { beginAtZero: true }
-                    }
-                }
-            });
-        }
-
-        // Afficher la distribution d'une variable
-        async function loadDistribution(variable) {
-            const response = await fetch(`${API_URL}/distribution/${variable}`);
-            if (!response.ok) {
-                console.error("Erreur lors du chargement de la distribution.");
-                return;
-            }
-            const distributionData = await response.json();
-            const ctx = document.getElementById('distribution-chart').getContext('2d');
-            new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: Array.from({ length: distributionData.accepted_values.length }, (_, i) => i + 1),
-                    datasets: [
-                        {
-                            label: 'Acceptés',
-                            data: distributionData.accepted_values,
-                            borderColor: 'rgba(75, 192, 192, 1)',
-                            fill: false
-                        },
-                        {
-                            label: 'Rejetés',
-                            data: distributionData.rejected_values,
-                            borderColor: 'rgba(255, 99, 132, 1)',
-                            fill: false
+                    cutoutPercentage: 80,
+                    rotation: Math.PI * -0.5,
+                    circumference: Math.PI * 2,
+                    plugins: {
+                        legend: {
+                            display: false
                         }
-                    ]
-                },
-                options: {
-                    scales: {
-                        x: { title: { display: true, text: 'Index' } },
-                        y: { title: { display: true, text: 'Valeur' } }
                     }
                 }
-            });
+            };
+
+            // Configurer le seuil
+            const thresholdConfig = {
+                type: 'doughnut',
+                data: {
+                    labels: ['Seuil', 'Reste'],
+                    datasets: [{
+                        data: [threshold * 100, (1 - threshold) * 100],
+                        backgroundColor: ['#ffeb3b', 'transparent'], // Jaune pour le seuil
+                        borderColor: ['#ffeb3b', 'transparent'],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    cutoutPercentage: 90,
+                    rotation: Math.PI * -0.5,
+                    circumference: Math.PI * 2,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            };
+
+            // Créer les jauges
+            new Chart(ctx, gaugeConfig);
+            new Chart(ctx, thresholdConfig);
+
+            // Afficher le seuil au centre
+            const centerText = document.createElement('p');
+            centerText.style.position = 'absolute';
+            centerText.style.top = '50%';
+            centerText.style.left = '50%';
+            centerText.style.transform = 'translate(-50%, -50%)';
+            centerText.style.fontSize = '20px';
+            centerText.style.fontWeight = 'bold';
+            centerText.textContent = `Seuil : ${threshold}`;
+            document.getElementById('gauge-container').appendChild(centerText);
         }
 
-        // Événements
-        document.getElementById('client-select').addEventListener('change', async (event) => {
-            const clientId = event.target.value;
-            if (clientId) {
-                await loadClientInfo(clientId);
-                await loadPrediction(clientId);
-                await loadLocalImportance(clientId);
-            }
-        });
+        // Récupérer l'importance globale
+        function fetchGlobalImportance() {
+            fetch("/global-importance")
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById("chart").src = "data:image/png;base64," + data.image;
+                })
+                .catch(error => alert("Erreur lors du chargement de l'importance globale."));
+        }
 
-        document.getElementById('variable-select').addEventListener('change', async (event) => {
-            const variable = event.target.value;
-            if (variable) {
-                await loadDistribution(variable);
+        // Récupérer l'importance locale
+        function fetchLocalImportance() {
+            const clientId = document.getElementById("client-id").value;
+            if (!clientId) {
+                alert("Veuillez sélectionner un ID client.");
+                return;
             }
-        });
+            fetch(`/local-importance/${clientId}`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById("chart").src = "data:image/png;base64," + data.image;
+                })
+                .catch(error => alert("Erreur lors du chargement de l'importance locale."));
+        }
 
-        // Initialisation
-        (async () => {
-            await loadClients();
-            await loadVariables();
-            await loadGlobalImportance();
-        })();
+        // Récupérer la distribution d'une variable
+        function fetchDistribution() {
+            const variable = document.getElementById("variable-select").value;
+            if (!variable) {
+                alert("Veuillez sélectionner une variable.");
+                return;
+            }
+            fetch(`/distribution/${variable}`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById("chart").src = "data:image/png;base64," + data.image;
+                })
+                .catch(error => alert("Erreur lors du chargement de la distribution."));
+        }
     </script>
 </body>
 </html>
