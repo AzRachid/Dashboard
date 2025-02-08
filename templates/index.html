@@ -35,7 +35,17 @@
             max-width: 100%;
             height: auto;
         }
+        #gauge-container {
+            text-align: center;
+            margin-top: 20px;
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+        }
     </style>
+    <!-- Ajouter Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div class="container">
@@ -48,7 +58,8 @@
 
         <!-- Prédiction -->
         <button onclick="predictClient()" id="predict-btn" disabled>Prédire</button>
-        <pre id="prediction-results"></pre>
+        <div id="prediction-results"></div>
+        <div id="gauge-container"></div>
 
         <!-- Graphiques -->
         <h2>Graphiques</h2>
@@ -99,9 +110,90 @@
             fetch(`/predict/${clientId}`)
                 .then(response => response.json())
                 .then(data => {
-                    document.getElementById("prediction-results").textContent = JSON.stringify(data, null, 2);
+                    const decision = data.decision || "Indéterminé";
+                    const score = data.score || 0;
+
+                    // Afficher la décision
+                    document.getElementById("prediction-results").innerHTML = `
+                        <strong>Décision :</strong> ${decision}<br>
+                        <strong>Score :</strong> ${score.toFixed(4)}
+                    `;
+
+                    // Créer la jauge
+                    createGauge(score);
                 })
                 .catch(error => alert("Erreur lors de la prédiction."));
+        }
+
+        // Créer une jauge avec Chart.js
+        function createGauge(score) {
+            const ctx = document.getElementById('gauge').getContext('2d');
+            const gaugeCanvas = document.getElementById('gauge');
+            if (!gaugeCanvas) {
+                const gaugeContainer = document.getElementById('gauge-container');
+                gaugeContainer.innerHTML = '<canvas id="gauge" width="300" height="300"></canvas>';
+            }
+
+            const gaugeConfig = {
+                type: 'doughnut',
+                data: {
+                    labels: ['Score', 'Seuil'],
+                    datasets: [{
+                        data: [score * 100, (1 - score) * 100],
+                        backgroundColor: ['#4caf50', '#f44336'],
+                        borderColor: ['#4caf50', '#f44336'],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    cutoutPercentage: 80,
+                    rotation: Math.PI * -0.5,
+                    circumference: Math.PI * 2,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            };
+
+            const threshold = 0.51;
+            const gaugeThresholdConfig = {
+                type: 'doughnut',
+                data: {
+                    labels: ['Seuil', 'Reste'],
+                    datasets: [{
+                        data: [threshold * 100, (1 - threshold) * 100],
+                        backgroundColor: ['#ffeb3b', 'transparent'],
+                        borderColor: ['#ffeb3b', 'transparent'],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    cutoutPercentage: 90,
+                    rotation: Math.PI * -0.5,
+                    circumference: Math.PI * 2,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            };
+
+            const gaugeChart = new Chart(ctx, gaugeConfig);
+            const thresholdChart = new Chart(ctx, gaugeThresholdConfig);
+
+            // Afficher le seuil au centre
+            const centerText = document.createElement('p');
+            centerText.style.position = 'absolute';
+            centerText.style.top = '50%';
+            centerText.style.left = '50%';
+            centerText.style.transform = 'translate(-50%, -50%)';
+            centerText.style.fontSize = '20px';
+            centerText.style.fontWeight = 'bold';
+            centerText.textContent = `Seuil : ${threshold}`;
+            document.getElementById('gauge-container').appendChild(centerText);
         }
 
         // Récupérer l'importance globale
