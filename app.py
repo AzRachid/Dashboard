@@ -87,7 +87,7 @@ def predict_client(client_id):
     try:
         client_data = requests.get(f"{API_URL}/client/{client_id}").json()
         score = client_data.get("score", 0)
-        decision = "Accepté" if score > 0.51 else "Refusé"
+        decision = "Accepté" if score < 0.51 else "Refusé"  # Correction : proche de 0 = accepté
         logger.info(f"Prediction for client ID {client_id}: Decision={decision}, Score={score}")
         return jsonify({"score": score, "decision": decision})
     except Exception as e:
@@ -152,6 +152,42 @@ def get_local_importance(client_id):
         return jsonify({"image": image_base64})
     except Exception as e:
         logger.error(f"Error generating local feature importance chart for client ID {client_id}: {e}")
+        return jsonify({"error": "Échec de la génération du graphique."}), 500
+
+@app.route("/distribution/<string:variable>", methods=["GET"])
+def get_distribution(variable):
+    """Affiche la distribution d'une variable selon la cible"""
+    logger.info(f"Fetching distribution for variable {variable}")
+    try:
+        # Simuler les données de distribution (à remplacer par vos propres données)
+        data = {
+            "accepted": [1, 2, 3, 4, 5],
+            "rejected": [5, 4, 3, 2, 1]
+        }
+        accepted_values = data.get("accepted", [])
+        rejected_values = data.get("rejected", [])
+
+        plt.figure(figsize=(10, 6))
+        sns.kdeplot(accepted_values, label="Acceptés", shade=True, color="green")
+        sns.kdeplot(rejected_values, label="Rejetés", shade=True, color="red")
+        plt.axvline(0.51, color='yellow', linestyle='--', label="Seuil (0.51)")  # Ajouter le seuil
+        plt.title(f"Distribution de {variable} selon la cible")
+        plt.xlabel(variable)
+        plt.ylabel("Densité")
+        plt.legend()
+        plt.tight_layout()
+
+        # Convertir le graphique en base64
+        buffer = BytesIO()
+        plt.savefig(buffer, format="png")
+        buffer.seek(0)
+        image_base64 = base64.b64encode(buffer.read()).decode("utf-8")
+        plt.close()
+
+        logger.info(f"Distribution chart generated successfully for variable {variable}")
+        return jsonify({"image": image_base64})
+    except Exception as e:
+        logger.error(f"Error generating distribution chart for variable {variable}: {e}")
         return jsonify({"error": "Échec de la génération du graphique."}), 500
 
 if __name__ == "__main__":
